@@ -1,4 +1,4 @@
-# zssh# zssh
+# zssh
 
 <div align="center">
   <img src="assets/icons/zssh.png" alt="zssh icon" width="128" height="128">
