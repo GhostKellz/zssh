@@ -1,0 +1,149 @@
+version: '3.8'
+
+services:
+  zssh-server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        ZIG_VERSION: 0.16.0-dev
+    image: ghoststack/zssh:2.0.0
+    container_name: zssh-server
+    hostname: zssh-server
+    restart: unless-stopped
+
+    ports:
+      - "2222:22"    # SSH port
+      - "2223:2223"  # QUIC transport port (if enabled)
+
+    environment:
+      # SSH Configuration
+      SSH_PORT: 22
+      LOG_LEVEL: INFO
+
+      # User Management
+      SSH_USERS: "demo:password123:1001:1001:Demo User,testuser:test456:1002:1002:Test User"
+      SSH_USER: demo
+      SSH_AUTHORIZED_KEYS: |
+        ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC4YNI+NQ7Hf8xDm3nIjKT3LYDDPEjNFPKEXnGGSEbA user@example.com
+        ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC... user2@example.com
+
+      # Security Settings
+      DISABLE_PASSWORD_AUTH: "false"
+      DISABLE_ROOT_LOGIN: "true"
+
+      # Advanced Features
+      DISABLE_QUIC: "false"
+      ENABLE_COMPRESSION: "true"
+      ENABLE_MULTIPLEXING: "true"
+
+      # OIDC Configuration (optional)
+      # OIDC_CLIENT_ID: "your-client-id"
+      # OIDC_CLIENT_SECRET: "your-client-secret"
+      # OIDC_PROVIDER: "github"
+      # OIDC_REDIRECT_URI: "http://localhost:8080/callback"
+
+    volumes:
+      # Persistent host keys
+      - zssh-host-keys:/etc/zssh/keys:rw
+
+      # User home directories
+      - zssh-home:/home:rw
+
+      # Logs
+      - zssh-logs:/var/log/zssh:rw
+
+      # Optional: Mount custom config
+      # - ./custom_zsshd_config:/etc/zssh/zsshd_config:ro
+
+      # Optional: Mount custom authorized_keys
+      # - ./authorized_keys:/home/demo/.ssh/authorized_keys:ro
+
+    networks:
+      - zssh-network
+
+    # Security settings
+    security_opt:
+      - no-new-privileges:true
+
+    # Read-only root filesystem (except for specific mounts)
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=100m
+      - /var/run:noexec,nosuid,size=100m
+
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+    # Health check
+    healthcheck:
+      test: ["CMD-SHELL", "zssh -o ConnectTimeout=3 -o StrictHostKeyChecking=no localhost echo 'health check' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Optional: SSH client for testing
+  zssh-client:
+    image: ghoststack/zssh:2.0.0
+    container_name: zssh-client
+    command: ["sleep", "infinity"]  # Keep container running for manual testing
+    depends_on:
+      - zssh-server
+    networks:
+      - zssh-network
+    profiles:
+      - testing
+
+  # Optional: SFTP server variant
+  zssh-sftp:
+    image: ghoststack/zssh:2.0.0
+    container_name: zssh-sftp
+    hostname: zssh-sftp
+    restart: unless-stopped
+
+    ports:
+      - "2224:22"
+
+    environment:
+      SSH_PORT: 22
+      LOG_LEVEL: INFO
+      SFTP_ONLY: "true"  # Restrict to SFTP subsystem only
+      SSH_USERS: "sftpuser:sftp123:1001:1001:SFTP User"
+      DISABLE_SHELL: "true"
+
+    volumes:
+      - zssh-sftp-data:/srv/sftp:rw
+      - zssh-sftp-keys:/etc/zssh/keys:rw
+
+    networks:
+      - zssh-network
+
+    profiles:
+      - sftp
+
+volumes:
+  zssh-host-keys:
+    driver: local
+  zssh-home:
+    driver: local
+  zssh-logs:
+    driver: local
+  zssh-sftp-data:
+    driver: local
+  zssh-sftp-keys:
+    driver: local
+
+networks:
+  zssh-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

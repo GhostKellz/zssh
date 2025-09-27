@@ -1,0 +1,176 @@
+apiVersion: ssh.ghoststack.dev/v1
+kind: SSHServer
+metadata:
+  name: enterprise-ssh-server
+  namespace: production
+  labels:
+    app: ssh-server
+    environment: production
+    tier: enterprise
+spec:
+  replicas: 3
+
+  networking:
+    port: 22
+    serviceType: LoadBalancer
+    quic:
+      enabled: true
+      port: 2223
+
+  authentication:
+    methods:
+      - oidc
+      - publickey
+    passwordAuthentication: false
+    publicKeyAuthentication: true
+    oidc:
+      provider: github
+      clientId: "github-enterprise-client-id"
+      clientSecretRef:
+        name: oidc-secrets
+        key: client-secret
+      redirectUri: "https://ssh.company.com/auth/callback"
+
+  hostKeys:
+    secretRef:
+      name: ssh-host-keys
+    types:
+      - ed25519
+      - rsa
+
+  security:
+    permitRootLogin: false
+    strictModes: true
+    allowUsers:
+      - engineering
+      - ops
+      - contractors
+    denyUsers:
+      - root
+      - daemon
+      - www-data
+
+  performance:
+    maxConnections: 1000
+    compression: true
+    multiplexing: true
+    zeroCopy: true
+
+  users:
+    authorizedKeysConfigMap:
+      name: enterprise-authorized-keys
+
+  image:
+    repository: registry.company.com/ghoststack/zssh
+    tag: "2.0.0-enterprise"
+    pullPolicy: Always
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2
+      memory: 4Gi
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: oidc-secrets
+  namespace: production
+type: Opaque
+stringData:
+  client-secret: "github-oauth-client-secret-here"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ssh-host-keys
+  namespace: production
+type: Opaque
+data:
+  ssh_host_ed25519_key: LS0tLS1CRUdJTi... # base64 encoded private key
+  ssh_host_ed25519_key.pub: c3NoLWVkMjU1MT... # base64 encoded public key
+  ssh_host_rsa_key: LS0tLS1CRUdJTi... # base64 encoded private key
+  ssh_host_rsa_key.pub: c3NoLXJzYSBBQUFBQ... # base64 encoded public key
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: enterprise-authorized-keys
+  namespace: production
+data:
+  engineering: |
+    ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC4YNI+NQ7Hf8xDm3nIjKT3LYDDPEjNFPKEXnGGSEbA alice@engineering
+    ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL2vMKO9Q8Xy... bob@engineering
+    ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC7... charlie@engineering
+  ops: |
+    ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC4YNI+NQ7Hf8xDm3nIjKT3LYDDPEjNFPKEXnGGSEbA admin@ops
+    ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL2vMKO9Q8Xy... monitoring@ops
+  contractors: |
+    ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC4YNI+NQ7Hf8xDm3nIjKT3LYDDPEjNFPKEXnGGSEbA contractor1@external
+    ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL2vMKO9Q8Xy... contractor2@external
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ssh-server-network-policy
+  namespace: production
+spec:
+  podSelector:
+    matchLabels:
+      app: ssh-server
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: production
+    - namespaceSelector:
+        matchLabels:
+          name: staging
+    - podSelector:
+        matchLabels:
+          app: ssh-client
+    ports:
+    - protocol: TCP
+      port: 22
+    - protocol: UDP
+      port: 2223
+  egress:
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 53
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    ports:
+    - protocol: TCP
+      port: 443
+
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ssh-server-monitor
+  namespace: production
+  labels:
+    app: ssh-server
+spec:
+  selector:
+    matchLabels:
+      app: ssh-server
+  endpoints:
+  - port: metrics
+    interval: 30s
+    path: /metrics

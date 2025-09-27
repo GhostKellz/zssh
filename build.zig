@@ -28,8 +28,33 @@ pub fn build(b: *std.Build) void {
     // to our consumers. We must give it a name because a Zig package can expose
     // multiple modules and consumers will need to be able to specify which
     // module they want to access.
-    // Add zcrypto dependency
+    // Add dependencies
     const zcrypto_dep = b.dependency("zcrypto", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const zquic_dep = b.dependency("zquic", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const flash_dep = b.dependency("flash", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const flare_dep = b.dependency("flare", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const zid_dep = b.dependency("zid", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const zsync_dep = b.dependency("zsync", .{
         .target = target,
         .optimize = optimize,
     });
@@ -47,6 +72,11 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .imports = &.{
             .{ .name = "zcrypto", .module = zcrypto_dep.module("zcrypto") },
+            .{ .name = "zquic", .module = zquic_dep.module("zquic") },
+            .{ .name = "flash", .module = flash_dep.module("flash") },
+            .{ .name = "flare", .module = flare_dep.module("flare") },
+            .{ .name = "zid", .module = zid_dep.module("zid") },
+            .{ .name = "zsync", .module = zsync_dep.module("zsync") },
         },
     });
 

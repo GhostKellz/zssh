@@ -1,0 +1,87 @@
+apiVersion: ssh.ghoststack.dev/v1
+kind: SSHServer
+metadata:
+  name: basic-ssh-server
+  namespace: default
+  labels:
+    app: ssh-server
+    environment: development
+spec:
+  replicas: 1
+
+  networking:
+    port: 22
+    serviceType: LoadBalancer
+    quic:
+      enabled: true
+      port: 2223
+
+  authentication:
+    methods:
+      - password
+      - publickey
+    passwordAuthentication: true
+    publicKeyAuthentication: true
+
+  hostKeys:
+    generate: true
+    types:
+      - ed25519
+      - rsa
+
+  security:
+    permitRootLogin: false
+    strictModes: true
+    allowUsers:
+      - demo
+      - testuser
+    denyUsers:
+      - root
+      - daemon
+
+  performance:
+    maxConnections: 100
+    compression: true
+    multiplexing: true
+    zeroCopy: true
+
+  users:
+    create:
+      - name: demo
+        uid: 1001
+        home: /home/demo
+        shell: /bin/bash
+        authorizedKeys:
+          - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC4YNI+NQ7Hf8xDm3nIjKT3LYDDPEjNFPKEXnGGSEbA demo@example.com"
+      - name: testuser
+        uid: 1002
+        home: /home/testuser
+        shell: /bin/bash
+        password: "testpass123"
+
+  image:
+    repository: ghoststack/zssh
+    tag: "2.0.0"
+    pullPolicy: IfNotPresent
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ssh-authorized-keys
+  namespace: default
+type: Opaque
+stringData:
+  demo: |
+    ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC4YNI+NQ7Hf8xDm3nIjKT3LYDDPEjNFPKEXnGGSEbA demo@example.com
+    ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC7... demo@another-machine
+  testuser: |
+    ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL2vMKO9Q8Xy... testuser@laptop

@@ -1,0 +1,78 @@
+# zsshd configuration for Docker container
+# Optimized for container environments
+
+# Network settings
+Port 22
+ListenAddress 0.0.0.0
+AddressFamily any
+MaxStartups 100:30:1000
+MaxSessions 100
+
+# Host keys
+HostKey /etc/zssh/ssh_host_ed25519_key
+HostKey /etc/zssh/ssh_host_rsa_key
+
+# Protocol settings
+Protocol 2
+ServerKeyBits 2048
+
+# Authentication
+PermitRootLogin no
+PasswordAuthentication yes
+PubkeyAuthentication yes
+AuthorizedKeysFile .ssh/authorized_keys
+PermitEmptyPasswords no
+ChallengeResponseAuthentication no
+UsePAM yes
+
+# OIDC Authentication (if enabled)
+OIDCEnable yes
+OIDCProviders google github microsoft okta
+
+# Advanced features
+EnableQuicTransport yes
+EnableCompression yes
+EnableMultiplexing yes
+EnableZeroCopy yes
+
+# Subsystems
+Subsystem sftp /usr/local/bin/zssh-sftp
+Subsystem netconf /usr/local/bin/zssh-netconf
+
+# Logging
+SyslogFacility DAEMON
+LogLevel INFO
+
+# Security settings
+StrictModes yes
+X11Forwarding no
+X11DisplayOffset 10
+PrintMotd no
+PrintLastLog yes
+TCPKeepAlive yes
+UsePrivilegeSeparation sandbox
+
+# Client settings
+ClientAliveInterval 300
+ClientAliveCountMax 3
+
+# Performance optimizations
+Compression yes
+CompressionLevel 6
+MaxAuthTries 3
+LoginGraceTime 120
+
+# Container-specific settings
+PidFile /var/run/zssh/zsshd.pid
+UseLogin no
+UseDNS no
+
+# Allow specific users/groups
+AllowUsers zssh
+AllowGroups zssh
+
+# Deny root and system users
+DenyUsers root daemon bin sys sync games man lp mail news uucp proxy www-data backup list irc gnats nobody
+
+# Banner
+Banner /etc/zssh/banner.txt

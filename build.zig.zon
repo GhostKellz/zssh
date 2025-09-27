@@ -40,6 +40,22 @@
             .url = "https://github.com/ghostkellz/zquic/archive/refs/heads/main.tar.gz",
             .hash = "zquic-0.9.0-2rPdsyexmxOTG6tHoQMyP9wrGNTx9H1SueA9zTfYKCY4",
         },
+        .flash = .{
+            .url = "https://github.com/ghostkellz/flash/archive/refs/heads/main.tar.gz",
+            .hash = "flash-0.2.4-dnj73-p7BQAfNq4cL_oklPQOaNDwVih2JNa4t4dVtJ-K",
+        },
+        .flare = .{
+            .url = "https://github.com/ghostkellz/flare/archive/refs/heads/main.tar.gz",
+            .hash = "flare-0.0.0-NK4JaX9eAQCgRuIiDBZr6uSz8D2DhSeeWswotvCbUeG_",
+        },
+        .zid = .{
+            .url = "https://github.com/ghostkellz/zid/archive/refs/heads/main.tar.gz",
+            .hash = "zid-0.1.0-wnm0zvMOAwBU8uXPrq4pL_cGNV9B5FsuwLwUq5Hd92im",
+        },
+        .zsync = .{
+            .url = "https://github.com/ghostkellz/zsync/archive/refs/heads/main.tar.gz",
+            .hash = "zsync-0.5.4-KAuheZ4THQAlN32uBKm76ezT7dPT6rvj4ll56NiA9z9M",
+        },
     },
     .paths = .{
         "build.zig",

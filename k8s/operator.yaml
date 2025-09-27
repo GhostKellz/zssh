@@ -1,0 +1,377 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zssh-operator
+  namespace: zssh-system
+  labels:
+    app.kubernetes.io/name: zssh-operator
+    app.kubernetes.io/version: "2.0.0"
+    app.kubernetes.io/component: operator
+    app.kubernetes.io/part-of: zssh
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zssh-operator
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: zssh-operator
+        app.kubernetes.io/version: "2.0.0"
+        app.kubernetes.io/component: operator
+    spec:
+      serviceAccountName: zssh-operator
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: operator
+        image: ghoststack/zssh-operator:2.0.0
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+        ports:
+        - name: webhook
+          containerPort: 8443
+          protocol: TCP
+        - name: metrics
+          containerPort: 8080
+          protocol: TCP
+        - name: health
+          containerPort: 8081
+          protocol: TCP
+        env:
+        - name: WATCH_NAMESPACE
+          value: ""
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: OPERATOR_NAME
+          value: "zssh-operator"
+        - name: ENABLE_WEBHOOKS
+          value: "true"
+        - name: ENABLE_LEADER_ELECTION
+          value: "true"
+        - name: LEADER_ELECTION_ID
+          value: "zssh-operator-leader-election"
+        - name: LOG_LEVEL
+          value: "info"
+        - name: METRICS_BIND_ADDRESS
+          value: ":8080"
+        - name: HEALTH_PROBE_BIND_ADDRESS
+          value: ":8081"
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: health
+          initialDelaySeconds: 15
+          periodSeconds: 20
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: health
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        volumeMounts:
+        - name: webhook-certs
+          mountPath: /tmp/k8s-webhook-server/serving-certs
+          readOnly: true
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: webhook-certs
+        secret:
+          secretName: zssh-operator-webhook-certs
+          defaultMode: 420
+      - name: tmp
+        emptyDir: {}
+      terminationGracePeriodSeconds: 30
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: zssh-operator
+  namespace: zssh-system
+  labels:
+    app.kubernetes.io/name: zssh-operator
+    app.kubernetes.io/component: operator
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: zssh-operator
+  labels:
+    app.kubernetes.io/name: zssh-operator
+    app.kubernetes.io/component: operator
+rules:
+# SSH Server resources
+- apiGroups:
+  - ssh.ghoststack.dev
+  resources:
+  - sshservers
+  - sshservers/status
+  - sshservers/finalizers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+# SSH User resources
+- apiGroups:
+  - ssh.ghoststack.dev
+  resources:
+  - sshusers
+  - sshusers/status
+  - sshusers/finalizers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+# Core Kubernetes resources
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - services
+  - secrets
+  - configmaps
+  - persistentvolumeclaims
+  - events
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - statefulsets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - networkpolicies
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+# Metrics and monitoring
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - servicemonitors
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+# Leader election
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+# Admission webhooks
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - validatingadmissionwebhooks
+  - mutatingadmissionwebhooks
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: zssh-operator
+  labels:
+    app.kubernetes.io/name: zssh-operator
+    app.kubernetes.io/component: operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: zssh-operator
+subjects:
+- kind: ServiceAccount
+  name: zssh-operator
+  namespace: zssh-system
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zssh-operator-webhook
+  namespace: zssh-system
+  labels:
+    app.kubernetes.io/name: zssh-operator
+    app.kubernetes.io/component: webhook
+spec:
+  ports:
+  - name: webhook
+    port: 443
+    targetPort: webhook
+    protocol: TCP
+  selector:
+    app.kubernetes.io/name: zssh-operator
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zssh-operator-metrics
+  namespace: zssh-system
+  labels:
+    app.kubernetes.io/name: zssh-operator
+    app.kubernetes.io/component: metrics
+spec:
+  ports:
+  - name: metrics
+    port: 8080
+    targetPort: metrics
+    protocol: TCP
+  selector:
+    app.kubernetes.io/name: zssh-operator
+
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionWebhook
+metadata:
+  name: zssh-validating-webhook
+  labels:
+    app.kubernetes.io/name: zssh-operator
+    app.kubernetes.io/component: webhook
+webhooks:
+- name: sshserver.ssh.ghoststack.dev
+  clientConfig:
+    service:
+      name: zssh-operator-webhook
+      namespace: zssh-system
+      path: /validate-ssh-ghoststack-dev-v1-sshserver
+  rules:
+  - operations:
+    - CREATE
+    - UPDATE
+    apiGroups:
+    - ssh.ghoststack.dev
+    apiVersions:
+    - v1
+    resources:
+    - sshservers
+  admissionReviewVersions:
+  - v1
+  - v1beta1
+  sideEffects: None
+  failurePolicy: Fail
+- name: sshuser.ssh.ghoststack.dev
+  clientConfig:
+    service:
+      name: zssh-operator-webhook
+      namespace: zssh-system
+      path: /validate-ssh-ghoststack-dev-v1-sshuser
+  rules:
+  - operations:
+    - CREATE
+    - UPDATE
+    apiGroups:
+    - ssh.ghoststack.dev
+    apiVersions:
+    - v1
+    resources:
+    - sshusers
+  admissionReviewVersions:
+  - v1
+  - v1beta1
+  sideEffects: None
+  failurePolicy: Fail
+
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingAdmissionWebhook
+metadata:
+  name: zssh-mutating-webhook
+  labels:
+    app.kubernetes.io/name: zssh-operator
+    app.kubernetes.io/component: webhook
+webhooks:
+- name: sshserver.ssh.ghoststack.dev
+  clientConfig:
+    service:
+      name: zssh-operator-webhook
+      namespace: zssh-system
+      path: /mutate-ssh-ghoststack-dev-v1-sshserver
+  rules:
+  - operations:
+    - CREATE
+    - UPDATE
+    apiGroups:
+    - ssh.ghoststack.dev
+    apiVersions:
+    - v1
+    resources:
+    - sshservers
+  admissionReviewVersions:
+  - v1
+  - v1beta1
+  sideEffects: None
+  failurePolicy: Fail

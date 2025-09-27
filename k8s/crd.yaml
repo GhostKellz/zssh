@@ -1,0 +1,514 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: sshservers.ssh.ghoststack.dev
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.13.0
+spec:
+  group: ssh.ghoststack.dev
+  names:
+    categories:
+    - ssh
+    kind: SSHServer
+    listKind: SSHServerList
+    plural: sshservers
+    shortNames:
+    - zssh
+    singular: sshserver
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: SSH Server Status
+      jsonPath: .status.phase
+      name: Status
+      type: string
+    - description: SSH Port
+      jsonPath: .spec.port
+      name: Port
+      type: integer
+    - description: Number of active connections
+      jsonPath: .status.activeConnections
+      name: Connections
+      type: integer
+    - description: Age of the SSH server
+      jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1
+    schema:
+      openAPIV3Schema:
+        description: SSHServer defines an SSH server instance
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: SSHServerSpec defines the desired state of SSHServer
+            properties:
+              authentication:
+                description: Authentication configuration
+                properties:
+                  methods:
+                    description: Enabled authentication methods
+                    items:
+                      enum:
+                      - password
+                      - publickey
+                      - oidc
+                      - certificate
+                      type: string
+                    type: array
+                  oidc:
+                    description: OIDC authentication configuration
+                    properties:
+                      clientId:
+                        description: OIDC client ID
+                        type: string
+                      clientSecretRef:
+                        description: Reference to secret containing client secret
+                        properties:
+                          key:
+                            type: string
+                          name:
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                      provider:
+                        description: OIDC provider
+                        enum:
+                        - google
+                        - github
+                        - microsoft
+                        - okta
+                        - custom
+                        type: string
+                      redirectUri:
+                        description: OIDC redirect URI
+                        type: string
+                    required:
+                    - clientId
+                    - clientSecretRef
+                    - provider
+                    type: object
+                  passwordAuthentication:
+                    description: Enable password authentication
+                    type: boolean
+                  publicKeyAuthentication:
+                    description: Enable public key authentication
+                    type: boolean
+                required:
+                - methods
+                type: object
+              hostKeys:
+                description: Host key configuration
+                properties:
+                  generate:
+                    description: Generate host keys automatically
+                    type: boolean
+                  secretRef:
+                    description: Reference to secret containing host keys
+                    properties:
+                      name:
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  types:
+                    description: Host key types to generate
+                    items:
+                      enum:
+                      - ed25519
+                      - rsa
+                      - ecdsa
+                      type: string
+                    type: array
+                type: object
+              image:
+                description: Container image for SSH server
+                properties:
+                  pullPolicy:
+                    description: Image pull policy
+                    enum:
+                    - Always
+                    - Never
+                    - IfNotPresent
+                    type: string
+                  repository:
+                    description: Image repository
+                    type: string
+                  tag:
+                    description: Image tag
+                    type: string
+                type: object
+              networking:
+                description: Network configuration
+                properties:
+                  port:
+                    description: SSH server port
+                    format: int32
+                    maximum: 65535
+                    minimum: 1
+                    type: integer
+                  quic:
+                    description: QUIC transport configuration
+                    properties:
+                      enabled:
+                        description: Enable QUIC transport
+                        type: boolean
+                      port:
+                        description: QUIC port
+                        format: int32
+                        maximum: 65535
+                        minimum: 1
+                        type: integer
+                    type: object
+                  serviceType:
+                    description: Kubernetes service type
+                    enum:
+                    - ClusterIP
+                    - NodePort
+                    - LoadBalancer
+                    - ExternalName
+                    type: string
+                required:
+                - port
+                type: object
+              performance:
+                description: Performance configuration
+                properties:
+                  compression:
+                    description: Enable compression
+                    type: boolean
+                  maxConnections:
+                    description: Maximum concurrent connections
+                    format: int32
+                    minimum: 1
+                    type: integer
+                  multiplexing:
+                    description: Enable connection multiplexing
+                    type: boolean
+                  zeroCopy:
+                    description: Enable zero-copy operations
+                    type: boolean
+                type: object
+              replicas:
+                description: Number of SSH server replicas
+                format: int32
+                minimum: 1
+                type: integer
+              resources:
+                description: Resource requirements
+                properties:
+                  limits:
+                    additionalProperties:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    description: Resource limits
+                    type: object
+                  requests:
+                    additionalProperties:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    description: Resource requests
+                    type: object
+                type: object
+              security:
+                description: Security configuration
+                properties:
+                  allowUsers:
+                    description: List of allowed users
+                    items:
+                      type: string
+                    type: array
+                  denyUsers:
+                    description: List of denied users
+                    items:
+                      type: string
+                    type: array
+                  permitRootLogin:
+                    description: Allow root login
+                    type: boolean
+                  strictModes:
+                    description: Enable strict mode checking
+                    type: boolean
+                type: object
+              users:
+                description: User management
+                properties:
+                  authorizedKeysConfigMap:
+                    description: ConfigMap containing authorized keys
+                    properties:
+                      name:
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  create:
+                    description: List of users to create
+                    items:
+                      properties:
+                        authorizedKeys:
+                          description: List of authorized SSH keys
+                          items:
+                            type: string
+                          type: array
+                        gid:
+                          description: Group ID
+                          format: int32
+                          type: integer
+                        home:
+                          description: Home directory
+                          type: string
+                        name:
+                          description: Username
+                          type: string
+                        password:
+                          description: User password (if password auth enabled)
+                          type: string
+                        shell:
+                          description: User shell
+                          type: string
+                        uid:
+                          description: User ID
+                          format: int32
+                          type: integer
+                      required:
+                      - name
+                      type: object
+                    type: array
+                type: object
+            required:
+            - authentication
+            - networking
+            type: object
+          status:
+            description: SSHServerStatus defines the observed state of SSHServer
+            properties:
+              activeConnections:
+                description: Number of active SSH connections
+                format: int32
+                type: integer
+              conditions:
+                description: Current conditions of the SSH server
+                items:
+                  properties:
+                    lastTransitionTime:
+                      description: Last time the condition transitioned
+                      format: date-time
+                      type: string
+                    message:
+                      description: Human readable message
+                      type: string
+                    reason:
+                      description: Reason for the condition
+                      type: string
+                    status:
+                      description: Status of the condition
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: Type of condition
+                      type: string
+                  required:
+                  - status
+                  - type
+                  type: object
+                type: array
+              hostKeyFingerprints:
+                description: SSH host key fingerprints
+                items:
+                  properties:
+                    algorithm:
+                      description: Key algorithm
+                      type: string
+                    fingerprint:
+                      description: Key fingerprint
+                      type: string
+                    type:
+                      description: Key type
+                      type: string
+                  required:
+                  - algorithm
+                  - fingerprint
+                  - type
+                  type: object
+                type: array
+              phase:
+                description: Current phase of the SSH server
+                enum:
+                - Pending
+                - Running
+                - Succeeded
+                - Failed
+                - Unknown
+                type: string
+              readyReplicas:
+                description: Number of ready replicas
+                format: int32
+                type: integer
+              replicas:
+                description: Total number of replicas
+                format: int32
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      scale:
+        specReplicasPath: .spec.replicas
+        statusReplicasPath: .status.replicas
+      status: {}
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: sshusers.ssh.ghoststack.dev
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.13.0
+spec:
+  group: ssh.ghoststack.dev
+  names:
+    categories:
+    - ssh
+    kind: SSHUser
+    listKind: SSHUserList
+    plural: sshusers
+    singular: sshuser
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: Username
+      jsonPath: .spec.username
+      name: Username
+      type: string
+    - description: SSH server reference
+      jsonPath: .spec.serverRef.name
+      name: Server
+      type: string
+    - description: User status
+      jsonPath: .status.phase
+      name: Status
+      type: string
+    name: v1
+    schema:
+      openAPIV3Schema:
+        description: SSHUser defines an SSH user account
+        properties:
+          apiVersion:
+            type: string
+          kind:
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: SSHUserSpec defines the desired state of SSHUser
+            properties:
+              authorizedKeys:
+                description: List of authorized SSH public keys
+                items:
+                  type: string
+                type: array
+              authorizedKeysSecretRef:
+                description: Reference to secret containing authorized keys
+                properties:
+                  key:
+                    type: string
+                  name:
+                    type: string
+                required:
+                - key
+                - name
+                type: object
+              groups:
+                description: Additional groups for the user
+                items:
+                  type: string
+                type: array
+              home:
+                description: Home directory path
+                type: string
+              passwordHash:
+                description: Encrypted password hash
+                type: string
+              serverRef:
+                description: Reference to SSH server
+                properties:
+                  name:
+                    type: string
+                required:
+                - name
+                type: object
+              shell:
+                description: User shell
+                type: string
+              uid:
+                description: User ID
+                format: int32
+                type: integer
+              username:
+                description: Username
+                pattern: ^[a-z_][a-z0-9_-]*$
+                type: string
+            required:
+            - serverRef
+            - username
+            type: object
+          status:
+            description: SSHUserStatus defines the observed state of SSHUser
+            properties:
+              conditions:
+                description: Current conditions of the SSH user
+                items:
+                  properties:
+                    lastTransitionTime:
+                      format: date-time
+                      type: string
+                    message:
+                      type: string
+                    reason:
+                      type: string
+                    status:
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      type: string
+                  required:
+                  - status
+                  - type
+                  type: object
+                type: array
+              phase:
+                description: Current phase of the SSH user
+                enum:
+                - Pending
+                - Active
+                - Inactive
+                - Failed
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
