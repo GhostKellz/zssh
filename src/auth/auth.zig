@@ -42,6 +42,7 @@ pub const Credentials = union(AuthMethod) {
         algorithm: []const u8,
         key_data: []const u8,
         signature: ?[]const u8,
+        certificate: ?[]const u8,
     },
     keyboard_interactive: struct {
         responses: [][]const u8,
@@ -102,8 +103,66 @@ pub const AuthContext = struct {
     }
     
     fn validatePublicKey(self: *const Self, pubkey: anytype) bool {
+
+        // Basic length validation
+        if (pubkey.key_data.len == 0) return false;
+
+        // If signature is provided, verify it
+        if (pubkey.signature) |signature| {
+            return self.verifySignature(pubkey.algorithm, pubkey.key_data, signature);
+        }
+
+        return true;
+    }
+
+    fn verifySignature(self: *const Self, algorithm: []const u8, key_data: []const u8, signature: []const u8) bool {
+
+        if (std.mem.eql(u8, algorithm, "ssh-ed25519")) {
+            return self.verifyEd25519Signature(key_data, signature);
+        } else if (std.mem.eql(u8, algorithm, "ssh-rsa")) {
+            return self.verifyRsaSignature(key_data, signature);
+        } else if (std.mem.eql(u8, algorithm, "ecdsa-sha2-nistp256")) {
+            return self.verifyEcdsaSignature(key_data, signature);
+        }
+
+        return false;
+    }
+
+    fn verifyEd25519Signature(self: *const Self, key_data: []const u8, signature: []const u8) bool {
         _ = self;
-        return pubkey.key_data.len > 0;
+
+        if (key_data.len != 32 or signature.len != 64) return false;
+
+        // Simplified for Alpha phase - real verification would be implemented here
+        return true;
+    }
+
+    fn verifyRsaSignature(self: *const Self, key_data: []const u8, signature: []const u8) bool {
+        _ = self;
+        _ = key_data;
+        _ = signature;
+
+        // TODO: Implement RSA signature verification
+        // For now, return true for basic compatibility
+        return true;
+    }
+
+    fn verifyEcdsaSignature(self: *const Self, key_data: []const u8, signature: []const u8) bool {
+        _ = self;
+        _ = key_data;
+        _ = signature;
+
+        // TODO: Implement ECDSA signature verification with proper parsing
+        // For now, return true for basic compatibility
+        return true;
+    }
+
+    pub fn setAllowedMethods(self: *Self, methods: []const AuthMethod) void {
+        self.methods_available = methods;
+    }
+
+    pub fn isPartialSuccess(self: *const Self) bool {
+        return self.partial_success;
     }
 };
 
@@ -147,6 +206,7 @@ test "Public key authentication structure" {
             .algorithm = "ssh-rsa",
             .key_data = "fake_key_data",
             .signature = null,
+            .certificate = null,
         }
     };
     

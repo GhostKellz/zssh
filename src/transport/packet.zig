@@ -23,6 +23,8 @@ pub const Packet = struct {
     payload: []u8,
     padding: []u8,
     mac: ?[]u8,
+    sequence_number: u32,
+    compressed: bool,
     
     const Self = @This();
     
@@ -40,6 +42,8 @@ pub const Packet = struct {
             .payload = try allocator.dupe(u8, payload),
             .padding = try allocator.alloc(u8, padding_length),
             .mac = null,
+            .sequence_number = 0,
+            .compressed = false,
         };
         
         std.crypto.random.bytes(packet.padding);
@@ -104,6 +108,8 @@ pub const Packet = struct {
             .payload = try allocator.dupe(u8, data[payload_start..padding_start]),
             .padding = try allocator.dupe(u8, data[padding_start..padding_start + padding_length]),
             .mac = null,
+            .sequence_number = 0,
+            .compressed = false,
         };
     }
     
@@ -114,6 +120,61 @@ pub const Packet = struct {
         const final_padding = if (padding_needed < MIN_PADDING_LENGTH) padding_needed + block_size else padding_needed;
         return @intCast(final_padding);
     }
+
+    pub fn computeMac(self: *const Self, allocator: Allocator, mac_key: []const u8, mac_algorithm: MacAlgorithm) ![]u8 {
+        // Create data for MAC computation: sequence_number + packet_data
+        const packet_data = try self.serialize(allocator);
+        defer allocator.free(packet_data);
+
+        var hmac_data = try allocator.alloc(u8, 4 + packet_data.len);
+        defer allocator.free(hmac_data);
+
+        std.mem.writeInt(u32, hmac_data[0..4], self.sequence_number, .big);
+        @memcpy(hmac_data[4..], packet_data);
+
+        return switch (mac_algorithm) {
+            .hmac_sha256 => blk: {
+                var hmac = std.crypto.auth.hmac.sha2.HmacSha256.init(mac_key);
+                hmac.update(hmac_data);
+                var result = try allocator.alloc(u8, std.crypto.auth.hmac.sha2.HmacSha256.mac_length);
+                hmac.final(result[0..std.crypto.auth.hmac.sha2.HmacSha256.mac_length]);
+                break :blk result;
+            },
+            .hmac_sha512 => blk: {
+                var hmac = std.crypto.auth.hmac.sha2.HmacSha512.init(mac_key);
+                hmac.update(hmac_data);
+                var result = try allocator.alloc(u8, std.crypto.auth.hmac.sha2.HmacSha512.mac_length);
+                hmac.final(result[0..std.crypto.auth.hmac.sha2.HmacSha512.mac_length]);
+                break :blk result;
+            },
+            .hmac_sha1 => blk: {
+                var hmac = std.crypto.auth.hmac.sha1.HmacSha1.init(mac_key);
+                hmac.update(hmac_data);
+                var result = try allocator.alloc(u8, std.crypto.auth.hmac.sha1.HmacSha1.mac_length);
+                hmac.final(result[0..std.crypto.auth.hmac.sha1.HmacSha1.mac_length]);
+                break :blk result;
+            },
+            .none => try allocator.alloc(u8, 0),
+        };
+    }
+
+    pub fn verifyMac(self: *const Self, allocator: Allocator, expected_mac: []const u8, mac_key: []const u8, mac_algorithm: MacAlgorithm) !bool {
+        const computed_mac = try self.computeMac(allocator, mac_key, mac_algorithm);
+        defer allocator.free(computed_mac);
+
+        return std.mem.eql(u8, computed_mac, expected_mac);
+    }
+
+    pub fn setSequenceNumber(self: *Self, seq_num: u32) void {
+        self.sequence_number = seq_num;
+    }
+};
+
+pub const MacAlgorithm = enum {
+    hmac_sha1,
+    hmac_sha256,
+    hmac_sha512,
+    none,
 };
 
 test "Packet creation and serialization" {

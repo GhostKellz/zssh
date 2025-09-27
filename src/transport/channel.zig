@@ -297,12 +297,12 @@ pub const ChannelRequest = struct {
     request_data: ?[]const u8,
     
     pub fn createPtyRequest(allocator: Allocator, channel_id: u32, term: []const u8, width: u32, height: u32) !ChannelRequest {
-        var buffer = std.ArrayList(u8).init(allocator);
-        defer buffer.deinit();
+        var buffer = std.ArrayList(u8){};
+        defer buffer.deinit(allocator);
         
         // Serialize pty-req data
         try buffer.writer().writeInt(u32, @intCast(term.len), .big);
-        try buffer.appendSlice(term);
+        try buffer.appendSlice(allocator, term);
         try buffer.writer().writeInt(u32, width, .big);
         try buffer.writer().writeInt(u32, height, .big);
         try buffer.writer().writeInt(u32, 0, .big); // pixel width
@@ -313,7 +313,7 @@ pub const ChannelRequest = struct {
             .channel_id = channel_id,
             .request_type = "pty-req",
             .want_reply = true,
-            .request_data = try buffer.toOwnedSlice(),
+            .request_data = try buffer.toOwnedSlice(allocator),
         };
     }
     
@@ -327,17 +327,19 @@ pub const ChannelRequest = struct {
     }
     
     pub fn createExecRequest(allocator: Allocator, channel_id: u32, command: []const u8) !ChannelRequest {
-        var buffer = std.ArrayList(u8).init(allocator);
-        defer buffer.deinit();
+        var buffer = std.ArrayList(u8){};
+        defer buffer.deinit(allocator);
         
-        try buffer.writer().writeInt(u32, @intCast(command.len), .big);
-        try buffer.appendSlice(command);
+        var len_bytes: [4]u8 = undefined;
+        std.mem.writeInt(u32, &len_bytes, @intCast(command.len), .big);
+        try buffer.appendSlice(allocator, &len_bytes);
+        try buffer.appendSlice(allocator, command);
         
         return ChannelRequest{
             .channel_id = channel_id,
             .request_type = "exec",
             .want_reply = true,
-            .request_data = try buffer.toOwnedSlice(),
+            .request_data = try buffer.toOwnedSlice(allocator),
         };
     }
     

@@ -140,11 +140,11 @@ pub const KexInit = struct {
     }
     
     pub fn serialize(self: *const Self, allocator: Allocator) ![]u8 {
-        var buffer = std.ArrayList(u8).init(allocator);
-        defer buffer.deinit();
+        var buffer = std.ArrayList(u8){};
+        defer buffer.deinit(allocator);
         
-        try buffer.append(transport.SSH_MSG.KEXINIT);
-        try buffer.appendSlice(&self.cookie);
+        try buffer.append(allocator, transport.SSH_MSG.KEXINIT);
+        try buffer.appendSlice(allocator, &self.cookie);
         
         const field_lists = [_][][]const u8{
             self.kex_algorithms,
@@ -160,27 +160,29 @@ pub const KexInit = struct {
         };
         
         for (field_lists) |list| {
-            try serializeStringList(&buffer, list);
+            try serializeStringList(&buffer, allocator, list);
         }
         
-        try buffer.append(if (self.first_kex_packet_follows) 1 else 0);
-        try buffer.appendSlice(&[_]u8{0, 0, 0, 0}); // Reserved
+        try buffer.append(allocator, if (self.first_kex_packet_follows) 1 else 0);
+        try buffer.appendSlice(allocator, &[_]u8{0, 0, 0, 0}); // Reserved
         
-        return buffer.toOwnedSlice();
+        return buffer.toOwnedSlice(allocator);
     }
     
-    fn serializeStringList(buffer: *std.ArrayList(u8), list: [][]const u8) !void {
+    fn serializeStringList(buffer: *std.ArrayList(u8), allocator: Allocator, list: [][]const u8) !void {
         var total_len: u32 = 0;
         for (list) |item| {
             if (total_len > 0) total_len += 1; // comma
             total_len += @intCast(item.len);
         }
         
-        try buffer.writer().writeInt(u32, total_len, .big);
+        var len_bytes: [4]u8 = undefined;
+        std.mem.writeInt(u32, &len_bytes, total_len, .big);
+        try buffer.appendSlice(allocator, &len_bytes);
         
         for (list, 0..) |item, i| {
-            if (i > 0) try buffer.append(',');
-            try buffer.appendSlice(item);
+            if (i > 0) try buffer.append(allocator, ',');
+            try buffer.appendSlice(allocator, item);
         }
     }
 };

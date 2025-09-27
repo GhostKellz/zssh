@@ -43,6 +43,9 @@ pub const Transport = struct {
     server_version: []const u8,
     sequence_number_send: u32,
     sequence_number_recv: u32,
+    last_heartbeat: i64,
+    heartbeat_interval_ms: u32,
+    keep_alive_enabled: bool,
     
     const Self = @This();
     
@@ -55,6 +58,9 @@ pub const Transport = struct {
             .server_version = "",
             .sequence_number_send = 0,
             .sequence_number_recv = 0,
+            .last_heartbeat = std.time.milliTimestamp(),
+            .heartbeat_interval_ms = 30000, // 30 seconds
+            .keep_alive_enabled = true,
         };
     }
     
@@ -79,6 +85,42 @@ pub const Transport = struct {
     
     pub fn isValidSshVersion(version: []const u8) bool {
         return std.mem.startsWith(u8, version, "SSH-2.0-");
+    }
+
+    pub fn sendHeartbeat(self: *Self) !void {
+        if (!self.keep_alive_enabled) return;
+
+        // Send SSH_MSG_IGNORE for heartbeat
+        const payload = [_]u8{SSH_MSG.IGNORE, 0, 0, 0, 4, 'p', 'i', 'n', 'g'};
+        _ = try self.stream.writeAll(&payload);
+        self.last_heartbeat = std.time.milliTimestamp();
+    }
+
+    pub fn needsHeartbeat(self: *const Self) bool {
+        if (!self.keep_alive_enabled) return false;
+        const now = std.time.milliTimestamp();
+        return (now - self.last_heartbeat) > self.heartbeat_interval_ms;
+    }
+
+    pub fn setHeartbeatInterval(self: *Self, interval_ms: u32) void {
+        self.heartbeat_interval_ms = interval_ms;
+    }
+
+    pub fn enableKeepAlive(self: *Self, enabled: bool) void {
+        self.keep_alive_enabled = enabled;
+    }
+
+    pub fn sendPacket(self: *Self, packet_data: []const u8) !void {
+        _ = try self.stream.writeAll(packet_data);
+        self.sequence_number_send += 1;
+    }
+
+    pub fn receivePacket(self: *Self, buffer: []u8) !usize {
+        const bytes_read = try self.stream.read(buffer);
+        if (bytes_read > 0) {
+            self.sequence_number_recv += 1;
+        }
+        return bytes_read;
     }
 };
 

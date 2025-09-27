@@ -104,12 +104,12 @@ pub const EncryptionKeys = struct {
     
     pub fn deinit(self: *Self, allocator: Allocator) void {
         // Zero out sensitive key material
-        std.crypto.utils.secureZero(u8, self.cipher_key_c2s);
-        std.crypto.utils.secureZero(u8, self.cipher_key_s2c);
-        std.crypto.utils.secureZero(u8, self.cipher_iv_c2s);
-        std.crypto.utils.secureZero(u8, self.cipher_iv_s2c);
-        std.crypto.utils.secureZero(u8, self.mac_key_c2s);
-        std.crypto.utils.secureZero(u8, self.mac_key_s2c);
+        @memset(self.cipher_key_c2s, 0);
+        @memset(self.cipher_key_s2c, 0);
+        @memset(self.cipher_iv_c2s, 0);
+        @memset(self.cipher_iv_s2c, 0);
+        @memset(self.mac_key_c2s, 0);
+        @memset(self.mac_key_s2c, 0);
         
         allocator.free(self.cipher_key_c2s);
         allocator.free(self.cipher_key_s2c);

@@ -1,0 +1,9 @@
+pub const enable_tls: bool = true;
+pub const enable_post_quantum: bool = true;
+pub const enable_hardware_accel: bool = true;
+pub const enable_blockchain: bool = true;
+pub const enable_vpn: bool = true;
+pub const enable_wasm: bool = true;
+pub const enable_enterprise: bool = true;
+pub const enable_zkp: bool = true;
+pub const enable_async: bool = true;

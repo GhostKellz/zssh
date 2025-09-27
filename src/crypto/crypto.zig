@@ -58,7 +58,7 @@ pub const SharedSecret = struct {
     
     pub fn deinit(self: *SharedSecret, allocator: Allocator) void {
         // Zero out sensitive data
-        std.crypto.utils.secureZero(u8, self.data);
+        @memset(self.data, 0);
         allocator.free(self.data);
     }
 };
@@ -88,27 +88,27 @@ pub const CryptoContext = struct {
     pub fn generateKeyPair(self: *Self) !KeyPair {
         switch (self.kex_algorithm) {
             .curve25519_sha256 => {
-                var private_key: [crypto.dh.X25519.secret_length]u8 = undefined;
-                var public_key: [crypto.dh.X25519.public_length]u8 = undefined;
-                
-                crypto.random.bytes(&private_key);
-                const public_key_result = crypto.dh.X25519.recoverPublicKey(private_key[0..32].*);
-                @memcpy(public_key[0..], &public_key_result);
-                
+                // Use zcrypto for proper X25519 key generation
+                const keypair = try zcrypto.x25519.generateKeypair();
+
                 return KeyPair{
-                    .public_key = try self.allocator.dupe(u8, &public_key),
-                    .private_key = try self.allocator.dupe(u8, &private_key),
+                    .public_key = try self.allocator.dupe(u8, &keypair.public_key),
+                    .private_key = try self.allocator.dupe(u8, &keypair.private_key),
                     .algorithm = .curve25519_sha256,
                 };
             },
             .ecdh_sha2_nistp256 => {
-                const keypair = crypto.sign.ecdsa.EcdsaP256Sha256.KeyPair.create(null) catch {
-                    return CryptoError.KeyGenerationFailed;
-                };
-                
+                // Use std.crypto for P-256 ECDH key generation
+                var seed: [32]u8 = undefined;
+                crypto.random.bytes(&seed);
+
+                const keypair = try crypto.sign.ecdsa.EcdsaP256Sha256.KeyPair.generateDeterministic(seed);
+                const public_key_bytes = keypair.public_key.toUncompressedSec1();
+                const private_key_bytes = keypair.secret_key.toBytes();
+
                 return KeyPair{
-                    .public_key = try self.allocator.dupe(u8, &keypair.public_key.toUncompressedSec1()),
-                    .private_key = try self.allocator.dupe(u8, &keypair.secret_key.toBytes()),
+                    .public_key = try self.allocator.dupe(u8, &public_key_bytes),
+                    .private_key = try self.allocator.dupe(u8, &private_key_bytes),
                     .algorithm = .ecdh_sha2_nistp256,
                 };
             },
@@ -128,10 +128,12 @@ pub const CryptoContext = struct {
                     return CryptoError.InvalidKeySize;
                 }
                 
-                var shared_key: [crypto.dh.X25519.shared_length]u8 = undefined;
-                _ = crypto.dh.X25519.create(shared_key[0..], private_key[0..32].*, peer_public_key[0..32].*) catch {
-                    return CryptoError.KeyGenerationFailed;
-                };
+                var shared_key: [zcrypto.x25519.SHARED_SECRET_SIZE]u8 = undefined;
+                // Use zcrypto for proper X25519 shared secret computation
+                shared_key = try zcrypto.x25519.computeSharedSecret(
+                    private_key[0..zcrypto.x25519.PRIVATE_KEY_SIZE].*,
+                    peer_public_key[0..zcrypto.x25519.PUBLIC_KEY_SIZE].*
+                );
                 
                 return SharedSecret{
                     .data = try self.allocator.dupe(u8, &shared_key),
@@ -150,11 +152,41 @@ pub const CryptoContext = struct {
         switch (self.enc_algorithm) {
             .aes256_ctr => {
                 if (key.len != 32) return CryptoError.InvalidKeySize;
-                
+                if (nonce.len != 16) return CryptoError.InvalidKeySize;
+
                 const ciphertext = try self.allocator.alloc(u8, plaintext.len);
+
+                // Use real AES-256-CTR encryption
                 const ctx = crypto.core.aes.Aes256.initEnc(key[0..32].*);
-                crypto.core.modes.ctr(crypto.core.aes.Aes256, ctx, ciphertext, plaintext, nonce[0..16].*, .big);
-                
+                var counter = nonce[0..16].*;
+
+                // For CTR mode, we need to encrypt in blocks
+                var offset: usize = 0;
+                while (offset < plaintext.len) {
+                    const remaining = plaintext.len - offset;
+                    const block_size = @min(remaining, 16);
+
+                    var keystream: [16]u8 = undefined;
+                    ctx.encrypt(&keystream, &counter);
+
+                    // XOR with plaintext
+                    for (0..block_size) |i| {
+                        ciphertext[offset + i] = plaintext[offset + i] ^ keystream[i];
+                    }
+
+                    offset += block_size;
+
+                    // Increment counter
+                    var carry: u16 = 1;
+                    var i: usize = 15;
+                    while (carry > 0 and i < 16) : (i -= 1) {
+                        carry += counter[i];
+                        counter[i] = @intCast(carry & 0xFF);
+                        carry >>= 8;
+                        if (i == 0) break;
+                    }
+                }
+
                 return ciphertext;
             },
             .chacha20_poly1305 => {
@@ -188,11 +220,40 @@ pub const CryptoContext = struct {
         switch (self.enc_algorithm) {
             .aes256_ctr => {
                 if (key.len != 32) return CryptoError.InvalidKeySize;
-                
+                if (nonce.len != 16) return CryptoError.InvalidKeySize;
+
                 const plaintext = try self.allocator.alloc(u8, ciphertext.len);
+
+                // AES-CTR decryption is the same as encryption (XOR with keystream)
                 const ctx = crypto.core.aes.Aes256.initEnc(key[0..32].*);
-                crypto.core.modes.ctr(crypto.core.aes.Aes256, ctx, plaintext, ciphertext, nonce[0..16].*, .big);
-                
+                var counter = nonce[0..16].*;
+
+                var offset: usize = 0;
+                while (offset < ciphertext.len) {
+                    const remaining = ciphertext.len - offset;
+                    const block_size = @min(remaining, 16);
+
+                    var keystream: [16]u8 = undefined;
+                    ctx.encrypt(&keystream, &counter);
+
+                    // XOR with ciphertext to get plaintext
+                    for (0..block_size) |i| {
+                        plaintext[offset + i] = ciphertext[offset + i] ^ keystream[i];
+                    }
+
+                    offset += block_size;
+
+                    // Increment counter
+                    var carry: u16 = 1;
+                    var i: usize = 15;
+                    while (carry > 0 and i < 16) : (i -= 1) {
+                        carry += counter[i];
+                        counter[i] = @intCast(carry & 0xFF);
+                        carry >>= 8;
+                        if (i == 0) break;
+                    }
+                }
+
                 return plaintext;
             },
             .chacha20_poly1305 => {
@@ -254,7 +315,7 @@ pub const CryptoContext = struct {
         const computed_mac = try self.computeHmac(data, key);
         defer self.allocator.free(computed_mac);
         
-        return std.crypto.utils.timingSafeEql([*]const u8, computed_mac.ptr, expected_mac.ptr, expected_mac.len);
+        return std.mem.eql(u8, computed_mac, expected_mac);
     }
 };
 

@@ -123,7 +123,7 @@ pub const PtyInfo = struct {
             
             if (pos + 4 > modes_data.len) return SessionError.InvalidTerminalMode;
             
-            const value = std.mem.readInt(u32, modes_data[pos..pos + 4], .big);
+            const value = std.mem.readInt(u32, modes_data[pos..][0..4], .big);
             pos += 4;
             
             if (std.meta.intToEnum(TerminalMode, opcode)) |mode| {
@@ -152,7 +152,7 @@ pub const Session = struct {
     process: ?std.process.Child,
     command: ?[]const u8,
     exit_code: ?u32,
-    environment: std.StringHashMapUnmanaged([]const u8, std.hash_map.AutoContext([]const u8), std.hash_map.default_max_load_percentage),
+    environment: std.StringHashMapUnmanaged([]const u8),
     
     const Self = @This();
     
@@ -165,7 +165,7 @@ pub const Session = struct {
             .process = null,
             .command = null,
             .exit_code = null,
-            .environment = std.StringHashMapUnmanaged([]const u8, std.hash_map.AutoContext([]const u8), std.hash_map.default_max_load_percentage){},
+            .environment = std.StringHashMapUnmanaged([]const u8){},
         };
     }
     
