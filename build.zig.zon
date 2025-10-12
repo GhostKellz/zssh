@@ -41,12 +41,12 @@
             .hash = "zquic-0.9.0-2rPdsyexmxOTG6tHoQMyP9wrGNTx9H1SueA9zTfYKCY4",
         },
         .flash = .{
-            .url = "https://github.com/ghostkellz/flash/archive/refs/heads/main.tar.gz",
-            .hash = "flash-0.2.4-dnj73-p7BQAfNq4cL_oklPQOaNDwVih2JNa4t4dVtJ-K",
+            .url = "https://github.com/ghostkellz/flash/archive/main.tar.gz",
+            .hash = "flash-0.3.1-dnj737-SBQDjkdsw5XOgIVxcWN0ZyJaDiXpUaoP7AcZ4",
         },
         .flare = .{
-            .url = "https://github.com/ghostkellz/flare/archive/refs/heads/main.tar.gz",
-            .hash = "flare-0.0.0-NK4JaX9eAQCgRuIiDBZr6uSz8D2DhSeeWswotvCbUeG_",
+            .url = "https://github.com/ghostkellz/flare/archive/main.tar.gz",
+            .hash = "flare-0.1.0-NK4JafGMAQA8xE2ah8YBxO74sOkWrsQYTkWQ64D1PJVg",
         },
         .zid = .{
             .url = "https://github.com/ghostkellz/zid/archive/refs/heads/main.tar.gz",
