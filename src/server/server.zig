@@ -4,7 +4,7 @@
 //! authentication, and session management.
 
 const std = @import("std");
-const net = std.net;
+const net = std.Io.net;
 const Allocator = std.mem.Allocator;
 const transport = @import("../transport/transport.zig");
 const auth = @import("../auth/auth.zig");
@@ -28,12 +28,12 @@ pub const ClientConnection = struct {
     transport: transport.Transport,
     auth_context: ?auth.AuthContext,
     authenticated: bool,
-    
+
     const Self = @This();
-    
-    pub fn init(stream: net.Stream, allocator: Allocator) Self {
+
+    pub fn init(stream: net.Stream, allocator: Allocator, io: std.Io) !Self {
         return Self{
-            .transport = transport.Transport.init(allocator, stream),
+            .transport = try transport.Transport.init(allocator, stream, io),
             .auth_context = null,
             .authenticated = false,
         };
@@ -53,10 +53,11 @@ pub const Server = struct {
     listener: ?net.Server,
     running: bool,
     connections: std.ArrayListUnmanaged(*ClientConnection),
-    
+    io_runtime: std.Io.Threaded,
+
     const Self = @This();
     
-    pub fn init(allocator: Allocator, config: ServerConfig) !Self {        
+    pub fn init(allocator: Allocator, config: ServerConfig) !Self {
         return Self{
             .allocator = allocator,
             .config = .{
@@ -70,18 +71,21 @@ pub const Server = struct {
             .listener = null,
             .running = false,
             .connections = std.ArrayListUnmanaged(*ClientConnection){},
+            .io_runtime = std.Io.Threaded.init(allocator),
         };
     }
     
     pub fn deinit(self: *Self) void {
         self.stop();
-        
+
         for (self.connections.items) |conn| {
             conn.deinit();
             self.allocator.destroy(conn);
         }
         self.connections.deinit(self.allocator);
-        
+
+        self.io_runtime.deinit();
+
         self.allocator.free(self.config.host);
         if (self.config.host_key_path) |path| {
             self.allocator.free(path);
@@ -89,13 +93,14 @@ pub const Server = struct {
     }
     
     pub fn listen(self: *Self) !void {
-        const address = try net.Address.resolveIp(self.config.host, self.config.port);
-        self.listener = try address.listen(.{
+        const address = try net.IpAddress.parse(self.config.host, self.config.port);
+        const io = self.io_runtime.io();
+        self.listener = try address.listen(io, .{
             .reuse_address = true,
         });
-        
+
         self.running = true;
-        
+
         std.log.info("SSH server listening on {s}:{d}", .{ self.config.host, self.config.port });
     }
     
@@ -103,15 +108,17 @@ pub const Server = struct {
         if (self.listener == null or !self.running) {
             return ServerError.AcceptFailed;
         }
-        
-        const connection = try self.listener.?.accept();
-        try self.handleClient(connection);
+
+        const io = self.io_runtime.io();
+        const stream = try self.listener.?.accept(io);
+        try self.handleClient(stream);
     }
     
     pub fn stop(self: *Self) void {
         self.running = false;
         if (self.listener) |*l| {
-            l.deinit();
+            const io = self.io_runtime.io();
+            l.deinit(io);
             self.listener = null;
         }
     }
@@ -124,20 +131,22 @@ pub const Server = struct {
         return self.connections.items.len;
     }
     
-    fn handleClient(self: *Self, connection: net.Server.Connection) !void {
+    fn handleClient(self: *Self, stream: net.Stream) !void {
         if (self.connections.items.len >= self.config.max_connections) {
-            connection.stream.close();
+            const io = self.io_runtime.io();
+            stream.close(io);
             return ServerError.ClientHandlingFailed;
         }
-        
+
         const client_conn = try self.allocator.create(ClientConnection);
-        client_conn.* = ClientConnection.init(connection.stream, self.allocator);
-        
+        const io = self.io_runtime.io();
+        client_conn.* = try ClientConnection.init(stream, self.allocator, io);
+
         try self.connections.append(self.allocator, client_conn);
-        
+
         try self.performVersionExchange(client_conn);
-        
-        std.log.info("Client connected from {any}", .{connection.address});
+
+        std.log.info("Client connected", .{});
     }
     
     fn performVersionExchange(self: *Self, client: *ClientConnection) !void {

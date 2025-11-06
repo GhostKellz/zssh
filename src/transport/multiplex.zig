@@ -12,7 +12,7 @@
 //! - Control commands (check, exit, stop)
 
 const std = @import("std");
-const net = std.net;
+const net = std.Io.net;
 const Allocator = std.mem.Allocator;
 
 pub const MultiplexError = error{

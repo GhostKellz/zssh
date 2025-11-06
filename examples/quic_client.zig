@@ -30,7 +30,7 @@ pub fn main() !void {
     defer transport.deinit();
 
     // Connect using QUIC
-    const address = try std.net.Address.parseIp(host, 22);
+    const address = try std.Io.net.IpAddress.parse(host, 22);
     try transport.connect(address, host);
 
     std.debug.print("QUIC connection established!\n");

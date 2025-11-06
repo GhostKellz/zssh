@@ -11,7 +11,7 @@
 //! - Secure channel forwarding
 
 const std = @import("std");
-const net = std.net;
+const net = std.Io.net;
 const Allocator = std.mem.Allocator;
 
 pub const X11Error = error{

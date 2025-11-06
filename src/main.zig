@@ -37,24 +37,23 @@ fn printUsage() !void {
 
 fn runServer(allocator: std.mem.Allocator) !void {
     std.debug.print("Starting SSH server...\n", .{});
-    
+
     const config = zssh.server.ServerConfig{
         .host = "127.0.0.1",
         .port = 2222,
         .max_connections = 10,
     };
-    
+
     var server = try zssh.Server.init(allocator, config);
     defer server.deinit();
-    
+
     try server.listen();
-    
+
     std.debug.print("Server ready. Press Ctrl+C to stop.\n", .{});
-    
+
     while (server.isRunning()) {
         server.accept() catch |err| {
             std.debug.print("Accept error: {}\n", .{err});
-            std.Thread.sleep(std.time.ns_per_ms * 100);
         };
     }
 }

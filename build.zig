@@ -58,7 +58,12 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    
+
+    const ztime_dep = b.dependency("ztime", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
     const mod = b.addModule("zssh", .{
         // The root source file is the "entry point" of this module. Users of
         // this module will only be able to access public declarations contained
@@ -77,6 +82,7 @@ pub fn build(b: *std.Build) void {
             .{ .name = "flare", .module = flare_dep.module("flare") },
             .{ .name = "zid", .module = zid_dep.module("zid") },
             .{ .name = "zsync", .module = zsync_dep.module("zsync") },
+            .{ .name = "ztime", .module = ztime_dep.module("ztime") },
         },
     });
 

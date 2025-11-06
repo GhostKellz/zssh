@@ -173,7 +173,7 @@ pub fn main() !void {
 // Simple HTTP server for OAuth callback
 const CallbackServer = struct {
     allocator: Allocator,
-    server: std.net.Server,
+    server: std.Io.net.Server,
 
     pub fn deinit(self: *CallbackServer) void {
         self.server.deinit();
@@ -181,7 +181,7 @@ const CallbackServer = struct {
 };
 
 fn startCallbackServer(allocator: Allocator) !*CallbackServer {
-    const address = try std.net.Address.parseIp("127.0.0.1", 8080);
+    const address = try std.Io.net.IpAddress.parse("127.0.0.1", 8080);
     var server = try address.listen(.{});
 
     const callback_server = try allocator.create(CallbackServer);

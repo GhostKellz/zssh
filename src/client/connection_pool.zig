@@ -4,7 +4,7 @@
 //! automatic reconnection, and load balancing across multiple servers.
 
 const std = @import("std");
-const net = std.net;
+const net = std.Io.net;
 const Allocator = std.mem.Allocator;
 const Client = @import("client.zig").Client;
 

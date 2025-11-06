@@ -4,7 +4,7 @@
 //! authentication, and channel management.
 
 const std = @import("std");
-const net = std.net;
+const net = std.Io.net;
 const Allocator = std.mem.Allocator;
 const transport = @import("../transport/transport.zig");
 const auth = @import("../auth/auth.zig");
@@ -31,7 +31,8 @@ pub const Client = struct {
     auth_context: ?auth.AuthContext,
     connected: bool,
     authenticated: bool,
-    
+    io_runtime: std.Io.Threaded,
+
     const Self = @This();
     
     pub fn init(allocator: Allocator, config: ClientConfig) !Self {
@@ -48,6 +49,7 @@ pub const Client = struct {
             .auth_context = null,
             .connected = false,
             .authenticated = false,
+            .io_runtime = std.Io.Threaded.init(allocator),
         };
     }
     
@@ -58,18 +60,20 @@ pub const Client = struct {
         if (self.auth_context) |*a| {
             a.deinit();
         }
+        self.io_runtime.deinit();
         self.allocator.free(self.config.username);
         self.allocator.free(self.config.host);
     }
     
     pub fn connect(self: *Self) !void {
-        const address = try net.Address.resolveIp(self.config.host, self.config.port);
-        const stream = try net.tcpConnectToAddress(address);
-        
-        self.transport = transport.Transport.init(self.allocator, stream);
-        
+        const address = try net.IpAddress.parse(self.config.host, self.config.port);
+        const io = self.io_runtime.io();
+        const stream = try address.connect(io, .{ .mode = .stream });
+
+        self.transport = try transport.Transport.init(self.allocator, stream, io);
+
         try self.performVersionExchange();
-        
+
         self.connected = true;
     }
     

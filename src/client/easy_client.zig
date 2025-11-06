@@ -20,7 +20,7 @@
 //! ```
 
 const std = @import("std");
-const net = std.net;
+const net = std.Io.net;
 const Allocator = std.mem.Allocator;
 const Client = @import("client.zig").Client;
 const ClientConfig = @import("client.zig").ClientConfig;

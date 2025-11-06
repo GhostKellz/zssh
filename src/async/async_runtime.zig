@@ -365,7 +365,7 @@ pub const SSHAsyncOps = struct {
 // Task implementations
 fn connectTask(args: anytype) ![]const u8 {
     // Async connection implementation
-    const address = try std.net.Address.parseIp(args.host, args.port);
+    const address = try std.Io.net.IpAddress.parse(args.host, args.port);
     const socket = try std.posix.socket(address.any.family, std.posix.SOCK.STREAM, 0);
     try std.posix.connect(socket, &address.any, address.getOsSockLen());
 

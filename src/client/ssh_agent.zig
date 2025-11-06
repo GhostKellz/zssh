@@ -12,7 +12,7 @@
 //! This enables seamless integration with GVault for secure key storage.
 
 const std = @import("std");
-const net = std.net;
+const net = std.Io.net;
 const Allocator = std.mem.Allocator;
 
 pub const AgentError = error{

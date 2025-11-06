@@ -4,7 +4,7 @@
 //! Provides multiplexing, 0-RTT connections, and better network resilience.
 
 const std = @import("std");
-const net = std.net;
+const net = std.Io.net;
 const Allocator = std.mem.Allocator;
 const zquic = @import("zquic");
 
