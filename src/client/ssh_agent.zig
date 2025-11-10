@@ -334,7 +334,14 @@ pub const SshAgent = struct {
 
         // Read length prefix
         var len_buf: [4]u8 = undefined;
-        const len_read = try stream.readAll(&len_buf);
+        // Zig 0.16.0-dev: readAll removed, use reader pattern
+        var io_threaded = std.Io.Threaded.init_single_threaded;
+        const io = io_threaded.io();
+        var reader_buf: [256]u8 = undefined;
+        var reader = stream.reader(io, &reader_buf);
+        const len_read = reader.interface.readSliceShort(&len_buf) catch {
+            return AgentError.ProtocolError;
+        };
         if (len_read != 4) {
             return AgentError.ProtocolError;
         }
@@ -348,7 +355,10 @@ pub const SshAgent = struct {
         const data = try self.allocator.alloc(u8, msg_len);
         errdefer self.allocator.free(data);
 
-        const data_read = try stream.readAll(data);
+        // Zig 0.16.0-dev: readAll removed, use reader pattern
+        const data_read = reader.interface.readSliceShort(data) catch {
+            return AgentError.ProtocolError;
+        };
         if (data_read != msg_len) {
             return AgentError.ProtocolError;
         }

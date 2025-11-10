@@ -383,7 +383,11 @@ pub const OIDCAuthenticator = struct {
             }
 
             // Check expiration
-            const now = std.time.timestamp();
+            // Zig 0.16.0-dev: std.time.timestamp() removed
+            var io_threaded = std.Io.Threaded.init_single_threaded;
+            const io = io_threaded.io();
+            const now_ts = std.Io.Clock.now(.real, io) catch return false;
+            const now: i64 = @divFloor(now_ts.nanoseconds, std.time.ns_per_s);
             if (jwt.payload.get("exp")) |exp_str| {
                 const exp = std.fmt.parseInt(i64, exp_str, 10) catch return false;
                 if (now >= exp) return false;

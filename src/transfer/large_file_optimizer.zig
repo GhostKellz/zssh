@@ -349,7 +349,14 @@ pub const LargeFileOptimizer = struct {
         const data = try self.allocator.alloc(u8, chunk.size);
         defer self.allocator.free(data);
 
-        const bytes_read = try file.readAll(data);
+        // Zig 0.16.0-dev: readAll removed, use reader pattern
+        var io_threaded = std.Io.Threaded.init_single_threaded;
+        const io = io_threaded.io();
+        var reader_buf: [4096]u8 = undefined;
+        var reader = file.reader(io, &reader_buf);
+        const bytes_read = reader.interface.readSliceShort(data) catch |err| {
+            return err;
+        };
         var final_data = data[0..bytes_read];
 
         // Apply compression if enabled

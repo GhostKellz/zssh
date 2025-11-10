@@ -70,13 +70,19 @@ pub const MuxMaster = struct {
     const Self = @This();
 
     pub fn init(allocator: Allocator, config: MuxConfig) !Self {
+        // Zig 0.16.0-dev: std.time.timestamp() removed
+        var io_threaded = std.Io.Threaded.init_single_threaded;
+        const io = io_threaded.io();
+        const now_ts = try std.Io.Clock.now(.real, io);
+        const timestamp: i64 = @divFloor(now_ts.nanoseconds, std.time.ns_per_s);
+
         return .{
             .allocator = allocator,
             .config = config,
             .socket = null,
             .clients = std.ArrayList(*MuxClient).init(allocator),
             .ssh_connection = null,
-            .last_activity = std.time.timestamp(),
+            .last_activity = timestamp,
             .running = false,
         };
     }
@@ -144,12 +150,21 @@ pub const MuxMaster = struct {
                     client.deinit();
                 };
 
-                self.last_activity = std.time.timestamp();
+                // Zig 0.16.0-dev: std.time.timestamp() removed
+                var io_threaded = std.Io.Threaded.init_single_threaded;
+                const io = io_threaded.io();
+                const now_ts = try std.Io.Clock.now(.real, io);
+                self.last_activity = @divFloor(now_ts.nanoseconds, std.time.ns_per_s);
             }
 
             // Check if we should auto-close
             if (self.config.persist_seconds > 0) {
-                const elapsed = std.time.timestamp() - self.last_activity;
+                // Zig 0.16.0-dev: std.time.timestamp() removed
+                var io_threaded2 = std.Io.Threaded.init_single_threaded;
+                const io2 = io_threaded2.io();
+                const now_ts2 = try std.Io.Clock.now(.real, io2);
+                const current_time: i64 = @divFloor(now_ts2.nanoseconds, std.time.ns_per_s);
+                const elapsed = current_time - self.last_activity;
                 if (elapsed > self.config.persist_seconds) {
                     std.debug.print("Auto-closing master after {d}s of inactivity\n", .{elapsed});
                     self.stop();
@@ -256,7 +271,12 @@ pub const MuxClient = struct {
         try writeU32(&response, 4); // SSH multiplex protocol v4
 
         // Session ID
-        self.session_id = @as(u32, @intCast(std.time.timestamp()));
+        // Zig 0.16.0-dev: std.time.timestamp() removed
+        var io_threaded = std.Io.Threaded.init_single_threaded;
+        const io = io_threaded.io();
+        const now_ts = try std.Io.Clock.now(.real, io);
+        const timestamp_i64: i64 = @divFloor(now_ts.nanoseconds, std.time.ns_per_s);
+        self.session_id = @as(u32, @intCast(timestamp_i64));
         try writeU32(&response, self.session_id);
 
         // Write message length

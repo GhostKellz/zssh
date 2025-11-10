@@ -437,7 +437,14 @@ const FileHandle = struct {
     pub fn read(self: *const FileHandle, allocator: Allocator, offset: u64, length: u32) ![]u8 {
         try self.file.seekTo(offset);
         const data = try allocator.alloc(u8, length);
-        const bytes_read = try self.file.readAll(data);
+        // Zig 0.16.0-dev: readAll removed, use reader pattern
+        var io_threaded = std.Io.Threaded.init_single_threaded;
+        const io = io_threaded.io();
+        var reader_buf: [4096]u8 = undefined;
+        var reader = self.file.reader(io, &reader_buf);
+        const bytes_read = reader.interface.readSliceShort(data) catch |err| {
+            return err;
+        };
         return data[0..bytes_read];
     }
 

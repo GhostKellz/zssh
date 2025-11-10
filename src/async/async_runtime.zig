@@ -395,9 +395,18 @@ fn fileTransferTask(args: anytype) ![]const u8 {
     var buffer = try std.heap.page_allocator.alloc(u8, args.chunk_size);
     defer std.heap.page_allocator.free(buffer);
 
+    // Zig 0.16.0-dev: readAll removed, use reader pattern
+    var io_threaded = std.Io.Threaded.init_single_threaded;
+    const io = io_threaded.io();
+    var reader_buf: [4096]u8 = undefined;
+    var reader = source_file.reader(io, &reader_buf);
+
     var total_transferred: u64 = 0;
     while (true) {
-        const bytes_read = try source_file.readAll(buffer);
+        const bytes_read = reader.interface.readSliceShort(buffer) catch |err| {
+            if (err == error.EndOfStream) break;
+            return err;
+        };
         if (bytes_read == 0) break;
 
         try dest_file.writeAll(buffer[0..bytes_read]);
