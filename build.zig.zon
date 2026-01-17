@@ -25,7 +25,7 @@
     .fingerprint = 0x340a8ab2e7902689, // Changing this has security and trust implications.
     // Tracks the earliest Zig version that the package considers to be a
     // supported use case.
-    .minimum_zig_version = "0.16.0-dev.164+bc7955306",
+    .minimum_zig_version = "0.16.0-dev.2193+fc517bd01",
     // This field is optional.
     // Each dependency must either provide a `url` and `hash`, or a `path`.
     // `zig build --fetch` can be used to fetch all dependencies of a package, recursively.
@@ -34,23 +34,23 @@
     .dependencies = .{
         .zcrypto = .{
             .url = "https://github.com/ghostkellz/zcrypto/archive/main.tar.gz",
-            .hash = "zcrypto-0.9.4-rgQAI0CSDQAPhfJx3mKzh19-Byj2dr8l_J9XRNSaosQj",
+            .hash = "zcrypto-0.9.7-rgQAI8_qDgBqWr7_jwJX8-rGLDVYIqN5SnYVl-DW76Qq",
         },
         .zquic = .{
             .url = "https://github.com/ghostkellz/zquic/archive/main.tar.gz",
-            .hash = "zquic-0.9.2-2rPdswXCmxPf1U5nhu45an5Gm3vzmASfrhIC4kbLf0-U",
+            .hash = "zquic-0.9.5-2rPds65bEgD9fM_aYNEgs4Rt84jaFb_eG_vqmJiTC362",
         },
         .flash = .{
             .url = "https://github.com/ghostkellz/flash/archive/main.tar.gz",
-            .hash = "flash-0.3.1-dnj738qSBQDhwSkZ5GoK5IE_aKIjwRGR8730Bgakrkc8",
+            .hash = "flash-0.3.2-dnj73xqXBQD9VUfAjBgRYQESldNLyod0kn7Ftz753G6h",
         },
         .flare = .{
             .url = "https://github.com/ghostkellz/flare/archive/main.tar.gz",
-            .hash = "flare-0.1.1-NK4JaX6MAQBQc-bpbfSy32p6mw3OAU0kV_2L4rhCl_qC",
+            .hash = "flare-0.1.3-NK4JaW-LAQADg6oOX2E6Cg7Uz3reUhwNcD5CB4FVbNo4",
         },
         .zid = .{
-            .url = "https://github.com/ghostkellz/zid/archive/refs/heads/main.tar.gz",
-            .hash = "zid-0.1.0-wnm0zvMOAwBU8uXPrq4pL_cGNV9B5FsuwLwUq5Hd92im",
+            .url = "https://github.com/ghostkellz/zid/archive/main.tar.gz",
+            .hash = "zid-0.1.1-wnm0zmUnAwDU-vxheFSk9YC4eoRHlIDf0geoHRmhfp4d",
         },
         .zsync = .{
             .url = "https://github.com/ghostkellz/zsync/archive/main.tar.gz",
@@ -58,7 +58,7 @@
         },
         .ztime = .{
             .url = "https://github.com/ghostkellz/ztime/archive/main.tar.gz",
-            .hash = "ztime-0.0.0-WONzbECoAQC8BBDSNZIr77cn8D0OaVqhTIi7x8Xt0k_r",
+            .hash = "ztime-0.1.0-WONzbASoAQCkNz2HQUJShczCGH2mhSNEt0DDlUWwTe54",
         },
     },
     .paths = .{
