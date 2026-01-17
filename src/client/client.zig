@@ -49,7 +49,9 @@ pub const Client = struct {
             .auth_context = null,
             .connected = false,
             .authenticated = false,
-            .io_runtime = std.Io.Threaded.init(allocator),
+            .io_runtime = std.Io.Threaded.init(allocator, .{
+                .environ = std.process.Environ.empty,
+            }),
         };
     }
     

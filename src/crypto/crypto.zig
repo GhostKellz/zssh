@@ -4,9 +4,26 @@
 //! encryption, MAC, and digital signatures using zcrypto.
 
 const std = @import("std");
+const builtin = @import("builtin");
 const zcrypto = @import("zcrypto");
 const crypto = std.crypto;
 const Allocator = std.mem.Allocator;
+
+/// Cross-platform cryptographically secure random bytes
+pub fn getRandomBytes(buf: []u8) void {
+    if (builtin.os.tag == .linux) {
+        var filled: usize = 0;
+        while (filled < buf.len) {
+            const rc = std.os.linux.getrandom(buf[filled..].ptr, buf.len - filled, 0);
+            if (rc > 0) {
+                filled += rc;
+            }
+        }
+    } else {
+        // Fallback to zcrypto's random if available
+        zcrypto.random.bytes(buf);
+    }
+}
 
 pub const CryptoError = error{
     InvalidKeySize,
@@ -100,7 +117,7 @@ pub const CryptoContext = struct {
             .ecdh_sha2_nistp256 => {
                 // Use std.crypto for P-256 ECDH key generation
                 var seed: [32]u8 = undefined;
-                crypto.random.bytes(&seed);
+                getRandomBytes(&seed);
 
                 const keypair = try crypto.sign.ecdsa.EcdsaP256Sha256.KeyPair.generateDeterministic(seed);
                 const public_key_bytes = keypair.public_key.toUncompressedSec1();

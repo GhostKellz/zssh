@@ -5,6 +5,7 @@
 
 const std = @import("std");
 const Allocator = std.mem.Allocator;
+const crypto = @import("../crypto/crypto.zig");
 
 pub const PacketError = error{
     InvalidPacketLength,
@@ -46,7 +47,7 @@ pub const Packet = struct {
             .compressed = false,
         };
         
-        std.crypto.random.bytes(packet.padding);
+        crypto.getRandomBytes(packet.padding);
         
         return packet;
     }

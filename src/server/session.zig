@@ -72,6 +72,14 @@ pub const TerminalMode = enum(u8) {
     PARODD = 93,
     TTY_OP_ISPEED = 128,
     TTY_OP_OSPEED = 129,
+
+    /// Safely convert an integer to TerminalMode, returning null if invalid
+    pub fn fromInt(value: u8) ?TerminalMode {
+        return switch (value) {
+            0...18, 30...41, 50...62, 70...75, 90...93, 128, 129 => @enumFromInt(value),
+            else => null,
+        };
+    }
 };
 
 pub const PtyInfo = struct {
@@ -126,9 +134,9 @@ pub const PtyInfo = struct {
             const value = std.mem.readInt(u32, modes_data[pos..][0..4], .big);
             pos += 4;
             
-            if (std.meta.intToEnum(TerminalMode, opcode)) |mode| {
+            if (TerminalMode.fromInt(opcode)) |mode| {
                 try self.setMode(allocator, mode, value);
-            } else |_| {
+            } else {
                 // Ignore unknown terminal modes
                 continue;
             }
@@ -175,7 +183,11 @@ pub const Session = struct {
         }
         
         if (self.process) |*proc| {
-            _ = proc.kill() catch {};
+            // Directly kill the process using POSIX signal if it has an id
+            if (proc.id) |pid| {
+                _ = std.posix.kill(pid, std.posix.SIG.KILL) catch {};
+                proc.id = null;
+            }
         }
         
         if (self.command) |cmd| {
@@ -338,8 +350,8 @@ pub const Session = struct {
         const term = try self.process.?.wait();
         self.exit_code = switch (term) {
             .Exited => |code| code,
-            .Signal => |_| 128, // Convention: 128 + signal number, simplified here
-            .Stopped => |_| 128,
+            .Signal => 128, // Convention: 128 + signal number, simplified here
+            .Stopped => 128,
             .Unknown => |code| code,
         };
         

@@ -71,7 +71,9 @@ pub const Server = struct {
             .listener = null,
             .running = false,
             .connections = std.ArrayListUnmanaged(*ClientConnection){},
-            .io_runtime = std.Io.Threaded.init(allocator),
+            .io_runtime = std.Io.Threaded.init(allocator, .{
+                .environ = std.process.Environ.empty,
+            }),
         };
     }
     

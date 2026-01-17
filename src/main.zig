@@ -1,21 +1,22 @@
 const std = @import("std");
 const zssh = @import("zssh");
 
-pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
+pub fn main(init: std.process.Init) !void {
+    const allocator = init.gpa;
 
     std.debug.print("SSH - Zig SSH 2.0 Library v{s}\n", .{zssh.SSH_VERSION});
-    
-    const args = try std.process.argsAlloc(allocator);
-    defer std.process.argsFree(allocator, args);
-    
+
+    // Collect args into a slice
+    const args = init.minimal.args.toSlice(init.arena.allocator()) catch |err| {
+        std.debug.print("Failed to get args: {}\n", .{err});
+        return;
+    };
+
     if (args.len < 2) {
         try printUsage();
         return;
     }
-    
+
     if (std.mem.eql(u8, args[1], "server")) {
         try runServer(allocator);
     } else if (std.mem.eql(u8, args[1], "client")) {
@@ -60,31 +61,31 @@ fn runServer(allocator: std.mem.Allocator) !void {
 
 fn runClient(allocator: std.mem.Allocator, hostname: []const u8) !void {
     std.debug.print("Connecting to {s}:2222...\n", .{hostname});
-    
+
     const config = zssh.client.ClientConfig{
         .username = "testuser",
         .host = hostname,
         .port = 2222,
     };
-    
+
     var client = try zssh.Client.init(allocator, config);
     defer client.deinit();
-    
+
     client.connect() catch |err| {
         std.debug.print("Connection failed: {}\n", .{err});
         return;
     };
-    
+
     std.debug.print("Connected! Attempting authentication...\n", .{});
-    
+
     const credentials = zssh.auth.Credentials{ .password = "testpass" };
     client.authenticate(credentials) catch |err| {
         std.debug.print("Authentication failed: {}\n", .{err});
         return;
     };
-    
+
     std.debug.print("Authentication successful!\n", .{});
-    
+
     client.disconnect();
 }
 

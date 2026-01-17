@@ -79,7 +79,7 @@ pub const KexInit = struct {
     
     pub fn init(allocator: Allocator) !Self {
         var cookie: [16]u8 = undefined;
-        std.crypto.random.bytes(&cookie);
+        crypto.getRandomBytes(&cookie);
         
         const kex_algs = [_][]const u8{
             "curve25519-sha256@libssh.org",
