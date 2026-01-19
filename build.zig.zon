@@ -42,7 +42,7 @@
         },
         .flash = .{
             .url = "https://github.com/ghostkellz/flash/archive/main.tar.gz",
-            .hash = "flash-0.3.2-dnj73xqXBQD9VUfAjBgRYQESldNLyod0kn7Ftz753G6h",
+            .hash = "flash-0.3.2-dnj73xqXBQA56YOmEwVh2aGCVMdzEDcNFmVjWVrKjIbi",
         },
         .flare = .{
             .url = "https://github.com/ghostkellz/flare/archive/main.tar.gz",
@@ -54,7 +54,7 @@
         },
         .zsync = .{
             .url = "https://github.com/ghostkellz/zsync/archive/main.tar.gz",
-            .hash = "zsync-0.7.1-KAuhef8qIQApcisOPygXIeE9pC8qzdQL2Jp96JbNQyRm",
+            .hash = "zsync-0.7.4-KAuheYHjFgAB-W9RvATLcMJyl_1jUtrBZoqXt4eaQN44",
         },
         .ztime = .{
             .url = "https://github.com/ghostkellz/ztime/archive/main.tar.gz",
